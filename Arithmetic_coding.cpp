@@ -56,7 +56,7 @@ int main()
         }
         fin.close();
 
-        std::vector<unsigned int> frequency; // массивы под количество встреченых символов и их значение (содержат только встереченные, порядок элементов совпадает, отсортированы по убыванию количества встреченых раз) 
+        std::vector<unsigned short> frequency; // массивы под количество встреченых символов и их значение (содержат только встереченные, порядок элементов совпадает, отсортированы по убыванию количества встреченых раз) 
         std::vector<char> signs;
 
         for (int i = 0; i < (int)IndexForSymbol.size(); ++i) { // цикл по всем возможным символам
@@ -73,7 +73,7 @@ int main()
                 signs[j] = i;
             }
         }
-        std::vector<unsigned int> b( (int)signs.size()+1 );
+        std::vector<unsigned short> b( (int)signs.size()+1 );
         b[0] = 0;
         for (long long i = 0, buf = 0; i < (int)signs.size(); ++i) { // цикл по встреченым символам
             IndexForSymbol[(byte)signs[i]] = i+1;
@@ -85,46 +85,60 @@ int main()
         encrypted_file_link.replace((int)encrypted_file_link.size() - 4, (int)encrypted_file_link.size(), "_encrypted_ar.bin");
         std::ofstream fout(encrypted_file_link, std::ios_base::binary); // открываем файл с зашифрованным текстом на запись
         fin.open(file_link);       // открываем файл с открытым текстом на чтение
-        int size_signs = signs.size();
+        unsigned short size_signs = signs.size();
         // Записываем таблицу со значениями и кодми в файл
-        fout.write((char*)&size_signs, sizeof(int));
+        fout.write((char*)&size_signs, sizeof(unsigned short));
         for (int i = 0; i < size_signs; i++) {
             fout.write((char*)&(signs[i]), sizeof(char));
-            fout.write((char*)&(b[i+1]), sizeof(unsigned int));
+            fout.write((char*)&(b[i+1]), sizeof(unsigned short));
         }
         // Записываем текст в файл
-        unsigned int l = 0, h = 65535, l_prev, h_prev, delitel = b[(int)b.size() - 1];
-        unsigned int First_qtr = (h + l) / 4; // 16384
-        unsigned int Half = First_qtr * 2; // 32768
-        unsigned int Third_qtr = First_qtr * 3;// 49152
-        unsigned int bits_to_follow = 0; // Сколько битов сбрасывать
-        char byte_c = 0; unsigned int byte_size = 0;
+        unsigned short l = 0, h = 65535, l_prev, h_prev, delitel = b[(int)b.size() - 1];
+        unsigned short First_qtr = (h + 1) / 4; // 16384
+        unsigned short Half = First_qtr * 2; // 32768
+        unsigned short Third_qtr = First_qtr * 3;// 49152
+        unsigned short bits_to_follow = 0; // Сколько битов сбрасывать
+        unsigned short byte_2_size = 0, byte_2 = 0;
         while (fin.get(c)) { //
-            int j = IndexForSymbol[c];
+            unsigned short j = IndexForSymbol[(byte)c];
             l_prev = l;
             h_prev = h;
             l = l_prev + b[j-1] * (h_prev - l_prev + 1) / delitel;
             h = l_prev + b[j] * (h_prev - l_prev + 1) / delitel - 1;
             for (;;) {
                 if (h < Half) {
+                    byte_2 = byte_2 << 1;
+                    byte_2_size++;
+                    if (byte_2_size == 16) {
+                        fout.write((char*)&byte_2, 2);
+                        byte_2 = 0;
+                        byte_2_size = 0;
+                    }
                     for (;bits_to_follow > 0; bits_to_follow--) {
-                        byte_c = byte_c << 1;
-                        byte_size++;
-                        if (byte_size == 8) {
-                            fout.write((char*)&byte_c, 1);
-                            byte_c = 0;
-                            byte_size = 0;
+                        byte_2 = byte_2 << 1 | 1;
+                        byte_2_size++;
+                        if (byte_2_size == 16) {
+                            fout.write((char*)&byte_2, 2);
+                            byte_2 = 0;
+                            byte_2_size = 0;
                         }
                     }
                 }
                 else if (l >= Half) {
+                    byte_2 = byte_2 << 1 | 1;
+                    byte_2_size++;
+                    if (byte_2_size == 16) {
+                        fout.write((char*)&byte_2, 2);
+                        byte_2 = 0;
+                        byte_2_size = 0;
+                    }
                     for (; bits_to_follow > 0; bits_to_follow--) {
-                        byte_c = byte_c << 1 | 1;
-                        byte_size++;
-                        if (byte_size == 8) {
-                            fout.write((char*)&byte_c, 1);
-                            byte_c = 0;
-                            byte_size = 0;
+                        byte_2 = byte_2 << 1;
+                        byte_2_size++;
+                        if (byte_2_size == 16) {
+                            fout.write((char*)&byte_2, 2);
+                            byte_2 = 0;
+                            byte_2_size = 0;
                         }
                     }
                     l -= Half;
@@ -140,9 +154,9 @@ int main()
                 h += h + 1;
             }
         }
-        if (byte_size) { // обработка последнего кода
-            byte_c = byte_c << (8 - byte_size);
-            fout.write((char*)&byte_c, 1);
+        if (byte_2_size) { // обработка последнего кода
+            byte_2 = byte_2 << (16 - byte_2_size);
+            fout.write((char*)&byte_2, 2);
         }
         fin.close();
         fout.close(); // закрываем файлы
@@ -153,17 +167,67 @@ int main()
         std::cout << "Пожалуйста введите путь до файла: ";
         std::cin >> encrypted_file_link;
         std::ifstream fin(encrypted_file_link, std::ios_base::binary); // открываем файл с зашифрованным текстом на чтение
-        
-        int size_signs;
-        fin.read((char*)&size_signs, sizeof(int));
+        std::string decrypted_file_link = encrypted_file_link; // создаем путь к файлу с расшифрованным текстом
+        decrypted_file_link.replace((int)decrypted_file_link.size() - 17, (int)decrypted_file_link.size(), "_decrypted_ar.txt");
+        std::ofstream fout(decrypted_file_link); // открываем файл с расшифрованным текстом на запись 
+
+        unsigned short size_signs;
+        fin.read((char*)&size_signs, sizeof(unsigned short));
         std::vector<char> signs(size_signs);
-        std::vector<unsigned int> b(size_signs + 1);
+        std::vector<unsigned short> b(size_signs + 1);
         b[0] = 0;
         for (int i = 0; i < size_signs; i++) {
             fin.read((char*)&(signs[i]), sizeof(char));
-            fin.read((char*)&(b[i + 1]), sizeof(unsigned int));
+            fin.read((char*)&(b[i + 1]), sizeof(unsigned short));
         }
+        unsigned short l = 0, h = 65535, l_prev, h_prev, delitel = b[(int)b.size() - 1], DataLength = b[(int)b.size() - 1];
+        unsigned short First_qtr = (h + 1) / 4; // 16384
+        unsigned short Half = First_qtr * 2; // 32768
+        unsigned short Third_qtr = First_qtr * 3;// 49152
+        unsigned short value, freq, buf, buf_size = 0;
+        fin.read((char*)&value, 2);
+        for (unsigned short i = 1, j; i < DataLength; i++) {
+            l_prev = l;
+            h_prev = h;
+            freq = ((value - l_prev + 1) * delitel - 1) / (h_prev - l_prev + 1);
+            for (j = 1; b[j] <= freq; j++); // Поиск символа
+            l = l_prev + b[j - 1] * (h_prev - l_prev + 1) / delitel;
+            h = l_prev + b[j] * (h_prev - l_prev + 1) / delitel - 1;
+            for (;;) {
+                if (h < Half) {}
+                else if (l >= Half) {
+                    value -= Half;
+                    l -= Half;
+                    h -= Half;
+                }
+                else if (l >= First_qtr && h < Third_qtr) {
+                    l -= First_qtr;
+                    h -= First_qtr;
+                    value -= First_qtr;
+                }
+                else break;
+                l += l;
+                h += h + 1;
+                if (buf_size) {
+                    value += value + (buf >> (--buf_size) & 1);
+                }
+                else {
+                    fin.read((char*)&buf, 2);
+                    buf_size = 16;
+                    value += value + (buf >> (--buf_size) & 1);
+                }
+            }
+            fout << (byte)signs[j-1];
+        }
+        fin.close();
+        fout.close(); // закрываем файлы
 
-
+        std::cout << "\nЕсли вы хотите сравнить расшифрованный файл с исхдным введите 1 иначе 0: ";
+        std::cin >> flag;
+        if (flag) {
+            std::string file_link = encrypted_file_link; // создаем путь к файлу с исходным текстом
+            file_link.replace((int)file_link.size() - 17, (int)file_link.size(), ".txt");
+            check_fequal(file_link, decrypted_file_link);
+        }
     }
 }
