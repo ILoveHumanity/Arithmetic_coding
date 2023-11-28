@@ -36,6 +36,10 @@ bool check_fequal(std::string a, std::string b) { // проверка на со�
     std::cout << "Файлы одинаковые"; // все совпало
     return true;
 }
+void print_b(unsigned short a) {
+    for (int i = 15; i >= 0; i--) { std::cout << ((a >> i) & 1); }
+    std::cout << "\n";
+}
 
 int main()
 {
@@ -110,6 +114,7 @@ int main()
                     byte_2 = byte_2 << 1;
                     byte_2_size++;
                     if (byte_2_size == 16) {
+                        //print_b(byte_2);
                         fout.write((char*)&byte_2, 2);
                         byte_2 = 0;
                         byte_2_size = 0;
@@ -118,6 +123,7 @@ int main()
                         byte_2 = byte_2 << 1 | 1;
                         byte_2_size++;
                         if (byte_2_size == 16) {
+                            //print_b(byte_2);
                             fout.write((char*)&byte_2, 2);
                             byte_2 = 0;
                             byte_2_size = 0;
@@ -128,6 +134,7 @@ int main()
                     byte_2 = byte_2 << 1 | 1;
                     byte_2_size++;
                     if (byte_2_size == 16) {
+                        //print_b(byte_2);
                         fout.write((char*)&byte_2, 2);
                         byte_2 = 0;
                         byte_2_size = 0;
@@ -136,6 +143,7 @@ int main()
                         byte_2 = byte_2 << 1;
                         byte_2_size++;
                         if (byte_2_size == 16) {
+                            //print_b(byte_2);
                             fout.write((char*)&byte_2, 2);
                             byte_2 = 0;
                             byte_2_size = 0;
@@ -150,12 +158,16 @@ int main()
                     h -= First_qtr;
                 }
                 else break;
-                l += l;
-                h += h + 1;
+                l <<= 1;
+                h <<= 1;
+                h++;
             }
         }
         if (byte_2_size) { // обработка последнего кода
+            //print_b(byte_2);
+            //std::cout << byte_2_size << "\n";
             byte_2 = byte_2 << (16 - byte_2_size);
+            //print_b(byte_2);
             fout.write((char*)&byte_2, 2);
         }
         fin.close();
@@ -186,6 +198,7 @@ int main()
         unsigned short Third_qtr = First_qtr * 3;// 49152
         unsigned short value, freq, buf, buf_size = 0;
         fin.read((char*)&value, 2);
+        //print_b(value);
         for (unsigned short i = 1, j; i < DataLength; i++) {
             l_prev = l;
             h_prev = h;
@@ -209,13 +222,21 @@ int main()
                 l += l;
                 h += h + 1;
                 if (buf_size) {
-                    value += value + (buf >> (--buf_size) & 1);
+                    //print_b(value);
+                    value <<= 1;
+                    //print_b(value);
+                    value |= (buf >> (--buf_size) & 1);
                 }
                 else {
-                    fin.read((char*)&buf, 2);
+                    if (!(fin.read((char*)&buf, 2))) { buf = 0; }
                     buf_size = 16;
-                    value += value + (buf >> (--buf_size) & 1);
+                    //print_b(value);
+                    value <<= 1;
+                    //print_b(value);
+                    value |= (buf >> (--buf_size) & 1);
                 }
+                //std::cout << i <<"  ";
+                //print_b(value);
             }
             fout << (byte)signs[j-1];
         }
