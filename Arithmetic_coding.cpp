@@ -52,7 +52,7 @@ int main()
         std::string file_link; 
         std::cout << "Пожалуйста введите путь до файла: ";
         std::cin >> file_link;
-        std::vector<int> IndexForSymbol(256); // таблица под значения кодов для символов, изначально используется для подсчета встреченых символов для экономии памяти
+        std::vector<int> IndexForSymbol(256); // таблица под индекс для символов, изначально используется для подсчета встреченых символов для экономии памяти
         std::ifstream fin(file_link);       // открываем файл на чтение, считаем встреченые символы, закрываем
         char c;
         while (fin.get(c)) {
@@ -68,7 +68,7 @@ int main()
                 frequency.push_back(0); // добовляем под него место в массивах
                 signs.push_back(0);
                 int j = (int)frequency.size() - 1; // вставляем его на свое место с сохранением убывания вероятности, и соответствия между двумя массивами  
-                while (j > 0 && IndexForSymbol[i] > frequency[j - 1]) {
+                while (j > 0 && IndexForSymbol[i] >= frequency[j - 1]) {
                     frequency[j] = frequency[j - 1];
                     signs[j] = signs[j - 1];
                     --j;
@@ -219,8 +219,9 @@ int main()
                     value -= First_qtr;
                 }
                 else break;
-                l += l;
-                h += h + 1;
+                l <<= 1;
+                h <<= 1;
+                h++;
                 if (buf_size) {
                     //print_b(value);
                     value <<= 1;
